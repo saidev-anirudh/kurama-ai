@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orchestrator-py"
+version = "0.1.0"
+description = "Kurama Python orchestrator scaffold"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.6",
+  "pydantic>=2.9.2",
+  "langgraph>=0.2.28",
+  "langchain>=0.3.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]

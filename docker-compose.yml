@@ -1,0 +1,39 @@
+version: "3.9"
+services:
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @portfolio/web dev"
+    environment:
+      KURAMA_GATEWAY_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+  gateway-go:
+    image: golang:1.23
+    working_dir: /app/apps/gateway-go
+    command: sh -c "go mod tidy && go run ./cmd/server"
+    environment:
+      ORCHESTRATOR_URL: http://orchestrator-py:8000
+      KURAMA_API_TOKEN: dev-token
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/app
+  api-go:
+    image: golang:1.23
+    working_dir: /app/apps/api-go
+    command: sh -c "go mod tidy && go run ./cmd/api"
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./:/app
+  orchestrator-py:
+    image: python:3.12-slim
+    working_dir: /app/apps/orchestrator-py
+    command: sh -c "pip install -e . && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
