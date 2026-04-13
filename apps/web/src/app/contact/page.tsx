@@ -1,8 +1,10 @@
+import { ContactCard } from "@/components/contact/contact-card";
+import { SceneShell } from "@/components/scenes/scene-shell";
+
 export default function ContactPage() {
   return (
-    <main className="content-page">
-      <h1>Contact</h1>
-      <p>Reach out for hiring, collaboration, speaking, or consulting conversations.</p>
-    </main>
+    <SceneShell scene="contact_holo">
+      <ContactCard />
+    </SceneShell>
   );
 }

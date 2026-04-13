@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+import json
 from uuid import uuid4
 
 from app.graph.nodes import (
@@ -90,6 +92,8 @@ def _after_repair(state: GraphState) -> str:
 
 
 GRAPH = _build_graph()
+CHECKPOINT_DIR = Path(__file__).resolve().parent / "checkpoints"
+CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def run_graph(text: str, session_id: str | None) -> dict[str, object]:
@@ -115,7 +119,7 @@ def run_graph(text: str, session_id: str | None) -> dict[str, object]:
         final = repair_or_finalize_node(final)
         final = emit_ui_and_voice_node(final)
 
-    return {
+    result = {
         "speech_text": final["speech_text"],
         "intent": {"name": final["intent_name"], "confidence": final["intent_confidence"]},
         "ui_actions": final["ui_actions"],
@@ -123,3 +127,6 @@ def run_graph(text: str, session_id: str | None) -> dict[str, object]:
         "graph_trace_id": final["graph_trace_id"],
         "sources": ["knowledge-base"],
     }
+    checkpoint_path = CHECKPOINT_DIR / f"{result['graph_trace_id']}.json"
+    checkpoint_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    return result
