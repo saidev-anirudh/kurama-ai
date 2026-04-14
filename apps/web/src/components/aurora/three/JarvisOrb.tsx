@@ -3,11 +3,27 @@
 import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import type { KuramaMode } from "@/store/voice-store";
+import { useVoiceStore } from "@/store/voice-store";
+
+function modeIntensity(mode: KuramaMode) {
+  switch (mode) {
+    case "thinking":
+      return { spin: 1.35, breathe: 1.25, branch: 1.3 };
+    case "speaking":
+      return { spin: 1.12, breathe: 1.35, branch: 1.15 };
+    case "listening":
+      return { spin: 1.08, breathe: 1.12, branch: 1.2 };
+    default:
+      return { spin: 1, breathe: 1, branch: 1 };
+  }
+}
 
 const BRANCH_COUNT = 120;
 const PARTICLE_COUNT = 600;
 
 export default function JarvisOrb() {
+  const mode = useVoiceStore((s) => s.mode);
   const groupRef = useRef<THREE.Group>(null);
   const coreRef = useRef<THREE.Mesh>(null);
   const branchRef = useRef<THREE.Points>(null);
@@ -43,13 +59,14 @@ export default function JarvisOrb() {
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
+    const m = modeIntensity(mode);
 
     if (groupRef.current) {
-      groupRef.current.rotation.y = t * 0.15;
+      groupRef.current.rotation.y = t * 0.15 * m.spin;
     }
 
     if (coreRef.current) {
-      const s = 1 + Math.sin(t * 2) * 0.05;
+      const s = 1 + Math.sin(t * 2 * m.breathe) * 0.05 * m.breathe;
       coreRef.current.scale.set(s, s, s);
     }
 
@@ -57,20 +74,20 @@ export default function JarvisOrb() {
       const pos = branchRef.current.geometry.attributes.position.array as Float32Array;
       for (let i = 0; i < BRANCH_COUNT; i++) {
         const i3 = i * 3;
-        const pulse = 1 + Math.sin(t * 1.5 + i * 0.3) * 0.15;
+        const pulse = 1 + Math.sin(t * 1.5 * m.branch + i * 0.3) * 0.15 * m.branch;
         pos[i3] = branchBase[i3] * pulse;
         pos[i3 + 1] = branchBase[i3 + 1] * pulse;
         pos[i3 + 2] = branchBase[i3 + 2] * pulse;
       }
       branchRef.current.geometry.attributes.position.needsUpdate = true;
-      branchRef.current.rotation.y = -t * 0.1;
+      branchRef.current.rotation.y = -t * 0.1 * m.spin;
     }
 
     if (outerRef.current) {
       const pos = outerRef.current.geometry.attributes.position.array as Float32Array;
       for (let i = 0; i < PARTICLE_COUNT; i++) {
         const i3 = i * 3;
-        const pulse = 1 + Math.sin(t * 0.8 + i * 0.05) * 0.08;
+        const pulse = 1 + Math.sin(t * 0.8 * m.breathe + i * 0.05) * 0.08 * m.breathe;
         pos[i3] = corePositions[i3] * pulse;
         pos[i3 + 1] = corePositions[i3 + 1] * pulse;
         pos[i3 + 2] = corePositions[i3 + 2] * pulse;

@@ -39,10 +39,9 @@ export function AuroraShell({ children }: { children: ReactNode }) {
           )}
         >
           {children}
+          {isHome ? <HeroContent /> : null}
         </div>
       </AssistantShell>
-
-      {isHome ? <HeroContent /> : null}
 
       <StatusBar />
     </div>

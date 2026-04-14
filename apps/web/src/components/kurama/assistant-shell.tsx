@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { SpeechRecognitionEventArgs, SpeechRecognizer } from "microsoft-cognitiveservices-speech-sdk";
 
-import { KuramaOrb } from "@/components/kurama/orb";
 import type { AgentAction } from "@/lib/actions/agent-actions";
+import { registerVoiceControls } from "@/store/voice-controls";
 import { useVoiceStore } from "@/store/voice-store";
 
 type BrowserRecognitionLike = {
@@ -31,6 +31,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
   const isHome = pathname === "/";
 
   const { mode, micAllowed, setMicAllowed, setMode, setActiveRoute } = useVoiceStore();
+  const enableMicRef = useRef<() => Promise<void>>(async () => {});
 
   const recognitionRef = useRef<SpeechRecognizer | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -312,6 +313,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
     const text = validation.cleaned;
     console.log("[kurama-transcript:user]", text);
     setMode("thinking");
+    const pipelineStart = performance.now();
     try {
       const response = await fetch("/api/kurama/orchestrate", {
         method: "POST",
@@ -319,6 +321,10 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ text }),
       });
       const payload = (await response.json()) as { speech_text: string; ui_actions: AgentAction[] };
+      const pipelineMs = Math.round(performance.now() - pipelineStart);
+      if (response.ok) {
+        useVoiceStore.getState().setVoiceMetrics({ lastPipelineMs: pipelineMs });
+      }
       if (!response.ok) {
         logVoice("orchestrate-http-error", payload);
         return;
@@ -353,7 +359,12 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       setMicAllowed(true);
       micAllowedRef.current = true;
       setMode("speaking");
-      await speakWithElevenLabs("Microphone enabled. I am listening. Ask me anything about Sai.");
+      if (!greetedRef.current) {
+        greetedRef.current = true;
+        await speakWithElevenLabs(intro);
+      } else {
+        await speakWithElevenLabs("Neural uplink restored. I am listening.");
+      }
       startListeningIfAvailable();
       setTimeout(() => setMode("listening"), 350);
     } catch (error) {
@@ -362,6 +373,15 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       micAllowedRef.current = false;
     }
   }
+
+  enableMicRef.current = enableMic;
+
+  useEffect(() => {
+    registerVoiceControls({
+      ready,
+      enableMic: async () => enableMicRef.current(),
+    });
+  }, [ready]);
 
   useEffect(() => {
     micAllowedRef.current = micAllowed;
@@ -376,11 +396,6 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
     let mounted = true;
     (async () => {
       setReady(true);
-      setMode("speaking");
-      if (!greetedRef.current) {
-        greetedRef.current = true;
-        await speakWithElevenLabs(intro);
-      }
       setMode("idle");
 
       setupBrowserRecognitionFallback();
@@ -482,17 +497,9 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      <div id="kurama-voice" className={isHome ? "kurama-home-stage" : "kurama-dock"}>
-        <button
-          className={isHome ? "kurama-home-button" : "kurama-dock-button"}
-          onClick={enableMic}
-          type="button"
-          disabled={!ready}
-          title={micAllowed ? "Continuous listening active" : "Enable microphone"}
-        >
-          <KuramaOrb state={mode} />
-        </button>
-      </div>
+      <span className="sr-only" aria-live="polite">
+        {micAllowed ? `Kurama voice ${mode}` : "Kurama voice idle"}
+      </span>
     </>
   );
 }

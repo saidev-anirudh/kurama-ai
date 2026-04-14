@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SpeechRecognizer, SpeechRecognitionEventArgs } from "microsoft-cognitiveservices-speech-sdk";
 
-import { KuramaOrb } from "@/components/kurama/orb";
 import type { AgentAction } from "@/lib/actions/agent-actions";
 import { profile } from "@/lib/content/resume";
 import { useVoiceStore } from "@/store/voice-store";
@@ -233,7 +232,12 @@ export function KuramaCommandCenter() {
         {profile.name} - Voice AI Lead. Enable mic once; Kurama will stay continuously interactive.
       </p>
 
-      <KuramaOrb state={mode} />
+      <div className="rounded-sm border border-border bg-card/40 px-4 py-3 font-display text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        Core hologram · <span className="text-primary">{mode}</span>
+        <span className="mt-2 block font-body text-xs normal-case tracking-normal text-muted-foreground">
+          3D Jarvis orb is rendered in the global scene canvas.
+        </span>
+      </div>
 
       <div className="actions">
         <button className="btn-primary" onClick={enableMic} type="button">
