@@ -482,7 +482,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      <div className={isHome ? "kurama-home-stage" : "kurama-dock"}>
+      <div id="kurama-voice" className={isHome ? "kurama-home-stage" : "kurama-dock"}>
         <button
           className={isHome ? "kurama-home-button" : "kurama-dock-button"}
           onClick={enableMic}

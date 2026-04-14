@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
-import { Inter, Orbitron, Space_Grotesk } from "next/font/google";
-import Link from "next/link";
-import { AssistantShell } from "@/components/kurama/assistant-shell";
+import { Cormorant_Garamond, Orbitron, Space_Grotesk } from "next/font/google";
+import { AuroraShell } from "@/components/aurora/AuroraShell";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const orbitron = Orbitron({ subsets: ["latin"], variable: "--font-orbitron" });
-const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" });
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-body",
+  weight: ["300", "400", "500", "700"],
+});
+
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["400", "500", "700", "900"],
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-organic",
+  weight: ["400", "500"],
+  style: ["normal", "italic"],
+});
 
 export const metadata: Metadata = {
   title: "Kurama Voice Portfolio",
@@ -16,18 +30,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${orbitron.variable} ${spaceGrotesk.variable}`}>
-        <header className="top-nav">
-          <Link href="/">Kurama</Link>
-          <nav>
-            <Link href="/about">About</Link>
-            <Link href="/projects">Projects</Link>
-            <Link href="/career-timeline">Career Timeline</Link>
-            <Link href="/blog">Blogs</Link>
-            <Link href="/contact">Contact Me</Link>
-          </nav>
-        </header>
-        <AssistantShell>{children}</AssistantShell>
+      <body
+        className={`${spaceGrotesk.variable} ${orbitron.variable} ${cormorantGaramond.variable} font-body antialiased`}
+      >
+        <AuroraShell>{children}</AuroraShell>
       </body>
     </html>
   );
