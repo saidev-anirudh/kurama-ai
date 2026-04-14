@@ -1,1 +1,23 @@
-[]
+[
+  {
+    "name": "Kurama Voice Portfolio",
+    "summary": "Voice-first futuristic personal website with continuous STT, TTS, and multi-agent orchestration.",
+    "stack": "Next.js, TypeScript, Go, FastAPI, LangGraph, Azure Speech, ElevenLabs",
+    "impact": "Interactive AI assistant that navigates the site, handles contact drafting, and keeps conversational memory.",
+    "url": "https://github.com/saidev-anirudh/kurama-ai"
+  },
+  {
+    "name": "Agentic Cold Email Generator",
+    "summary": "Multi-agent workflow matching job descriptions to resume context and generating personalized outreach.",
+    "stack": "Python, Selenium, CrewAI, LangChain",
+    "impact": "Automated lead-ready outbound drafts with context-aware personalization.",
+    "url": "https://github.com/saidev-anirudh"
+  },
+  {
+    "name": "Agentic Model Visualization System",
+    "summary": "Parallel agent orchestration for code and model introspection with interactive visualization and tracing.",
+    "stack": "LangGraph, MCP, Plotly, FastAPI, MLflow, Docker",
+    "impact": "Improved explainability and speed of model diagnostics for teams.",
+    "url": "https://github.com/saidev-anirudh"
+  }
+]

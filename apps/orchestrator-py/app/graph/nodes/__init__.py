@@ -1,5 +1,6 @@
 from app.agents.router_agent import classify_intent
 from app.graph.state import GraphState
+from app.knowledge.retrieval import retrieve_knowledge_context
 from app.llm.azure_openai import generate_kurama_reply
 from app.memory.shared_memory import summarize_recent
 
@@ -49,10 +50,17 @@ def intent_and_policy_node(state: GraphState) -> GraphState:
 
 
 def retrieval_context_node(state: GraphState) -> GraphState:
+    retrieval = retrieve_knowledge_context(
+        query=state.get("text", ""),
+        intent_name=state.get("intent_name", "general"),
+        max_items=7,
+    )
     state["retrieval_context"] = {
-        "knowledge_source": "profile+projects+timeline",
-        "confidence_boost": 0.08,
+        "knowledge_source": retrieval.get("knowledge_source", "data/knowledge"),
+        "confidence_boost": 0.12,
+        "matched_items": retrieval.get("matched_items", 0),
     }
+    state["knowledge_context"] = retrieval.get("snippets", [])
     state["website_context"] = {
         "supported_routes": ["/", "/about", "/projects", "/career-timeline", "/blog", "/contact"],
         "contact_flow": "voice draft -> review -> send",
@@ -117,6 +125,7 @@ def route_domain_node(state: GraphState) -> GraphState:
         state["intent_name"],
         route,
         state.get("memory_summary", ""),
+        state.get("knowledge_context", []),
     )
     if state.get("intent_name") == "website":
         state["speech_text"] = llm_reply or "You are on Sai's website now. Ask me to open projects, blog, career timeline, or contact."

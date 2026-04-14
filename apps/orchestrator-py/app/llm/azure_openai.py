@@ -30,7 +30,13 @@ def sanitize_for_speech(text: str) -> str:
     return cleaned
 
 
-def generate_kurama_reply(user_text: str, intent_name: str, route: str, memory_summary: str) -> str | None:
+def generate_kurama_reply(
+    user_text: str,
+    intent_name: str,
+    route: str,
+    memory_summary: str,
+    knowledge_context: list[str] | None = None,
+) -> str | None:
     resume_context = (
         "Candidate context: Sai Dev Anirudh Thatode, Voice AI Lead at Chat360, previously NYX AI and Genpact. "
         "Core strengths include voice AI, Asterisk/ARI telephony, LangGraph orchestration, GraphRAG/Agentic RAG, "
@@ -63,7 +69,8 @@ def generate_kurama_reply(user_text: str, intent_name: str, route: str, memory_s
                     "Output plain conversational text only with no markdown, bullets, symbols, or special formatting. "
                     "Reply in 1-2 concise sentences. Be helpful, confident, and guide the user "
                     f"toward the route {route}. Intent is {intent_name}. "
-                    f"{resume_context} Shared memory context: {memory_summary}"
+                    f"{resume_context} Shared memory context: {memory_summary} "
+                    f"Knowledge snippets: {' | '.join(knowledge_context or [])}"
                 ),
             },
             {"role": "user", "content": user_text},

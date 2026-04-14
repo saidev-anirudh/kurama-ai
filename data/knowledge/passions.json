@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "name": "Voice AI",
+    "description": "Building natural, low-latency voice assistants that solve real business workflows."
+  },
+  {
+    "name": "Agentic Systems",
+    "description": "Designing multi-agent architectures with routing, tool use, and human-in-the-loop checkpoints."
+  },
+  {
+    "name": "Developer Experience",
+    "description": "Crafting end-to-end systems that are observable, reliable, and pleasant for teams to build on."
+  }
+]

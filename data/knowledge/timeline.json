@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "company": "Chat360",
+    "role": "Voice AI Lead",
+    "period": "Jun 2025 - Present",
+    "impact": "Owned end-to-end voice AI delivery and improved latency, containment, and release reliability for enterprise voice workloads."
+  },
+  {
+    "company": "NYX AI",
+    "role": "AI ML Engineer",
+    "period": "Sep 2024 - May 2025",
+    "impact": "Built agentic RAG and analytics systems with async services supporting high-throughput campaign intelligence."
+  },
+  {
+    "company": "Genpact",
+    "role": "Graduate Data Scientist",
+    "period": "Feb 2024 - Aug 2024",
+    "impact": "Enhanced loan detection and document query pipelines with enterprise NLP and retrieval architectures."
+  }
+]

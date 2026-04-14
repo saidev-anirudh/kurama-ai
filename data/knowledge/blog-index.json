@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "title": "From IVR to Agentic Voice Systems",
+    "description": "Design patterns for resilient telephony-to-LLM pipelines with interruption and multilingual support.",
+    "platform": "Medium",
+    "url": "https://medium.com/@sai44dev44"
+  },
+  {
+    "title": "GraphRAG vs Agentic RAG in Production",
+    "description": "How to choose retrieval strategy by intent and workload profile in real systems.",
+    "platform": "Medium",
+    "url": "https://medium.com/@sai44dev44"
+  },
+  {
+    "title": "Latency Budgets for Conversational AI",
+    "description": "Practical levers to reduce perceived and actual response latency in voice products.",
+    "platform": "Medium",
+    "url": "https://medium.com/@sai44dev44"
+  }
+]

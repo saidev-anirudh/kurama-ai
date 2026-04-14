@@ -1,1 +1,32 @@
-{"name":"Sai Devanirudh","title":"AI Engineer"}
+{
+  "name": "Sai Dev Anirudh Thatode",
+  "title": "Voice AI Lead",
+  "email": "sai44dev44@gmail.com",
+  "phone": "+91 9611245205",
+  "location": "Pune, India",
+  "linkedin": "https://www.linkedin.com/in/sai-dev-anirudh-thatode-055702223/",
+  "github": "https://github.com/saidev-anirudh",
+  "github_username": "saidev-anirudh",
+  "medium": "https://medium.com/@sai44dev44",
+  "summary": "Voice AI Lead building production grade voicebots, RAG systems, and multi-agent platforms across airports, BFSI, and marketing use cases.",
+  "highlights": [
+    "Led a 6-member Voice AI team with 95 percent on-time delivery",
+    "Reduced average response time by 3.8 seconds and improved call containment by 30 percent",
+    "Engineered high-concurrency ARI flows sustaining 8 calls per second under peak traffic",
+    "Built GraphRAG and Agentic RAG pipelines improving first-query resolution by 25 percent"
+  ],
+  "skills": [
+    "Python",
+    "Go",
+    "FastAPI",
+    "LangGraph",
+    "LangChain",
+    "Asterisk ARI",
+    "Docker",
+    "Kubernetes",
+    "Redis",
+    "PostgreSQL",
+    "Qdrant",
+    "RabbitMQ"
+  ]
+}

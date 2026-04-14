@@ -24,6 +24,7 @@ class GraphState(TypedDict, total=False):
     graph_path: list[str]
     graph_trace_id: str
     retrieval_context: dict[str, object]
+    knowledge_context: list[str]
     personalization_context: dict[str, object]
     website_context: dict[str, object]
     action_valid: bool
