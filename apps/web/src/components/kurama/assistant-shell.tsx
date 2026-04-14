@@ -48,6 +48,8 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
   const sttRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tokenRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sttActiveRef = useRef(false);
+  /** Resolves the in-flight ElevenLabs/browser-TTS promise when audio is paused or torn down (STT interrupt). */
+  const ttsCompleteRef = useRef<(() => void) | null>(null);
   const [ready, setReady] = useState(false);
 
   const intro = useMemo(
@@ -65,6 +67,8 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
   }
 
   function stopActivePlayback() {
+    ttsCompleteRef.current?.();
+    ttsCompleteRef.current = null;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -137,6 +141,15 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
         resolve();
         return;
       }
+      let settled = false;
+      const complete = () => {
+        if (settled) return;
+        settled = true;
+        ttsCompleteRef.current = null;
+        speakingRef.current = false;
+        resolve();
+      };
+      ttsCompleteRef.current = complete;
       const utterance = new SpeechSynthesisUtterance(text);
       const voices = window.speechSynthesis.getVoices();
       const preferred =
@@ -148,14 +161,12 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       utterance.pitch = 1.02;
       speakingRef.current = true;
       utterance.onend = () => {
-        speakingRef.current = false;
         logVoice("browser-tts-ended");
-        resolve();
+        complete();
       };
       utterance.onerror = () => {
-        speakingRef.current = false;
         logVoice("browser-tts-error");
-        resolve();
+        complete();
       };
       logVoice("browser-tts-start");
       window.speechSynthesis.speak(utterance);
@@ -185,20 +196,21 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       audioRef.current = audio;
       speakingRef.current = true;
       await new Promise<void>((resolve) => {
-        audio.onended = () => {
+        let settled = false;
+        const complete = (reason: string) => {
+          if (settled) return;
+          settled = true;
+          ttsCompleteRef.current = null;
           speakingRef.current = false;
-          logVoice("elevenlabs-tts-ended");
+          logVoice(reason);
           URL.revokeObjectURL(url);
           resolve();
         };
-        audio.onerror = () => {
-          speakingRef.current = false;
-          logVoice("elevenlabs-tts-audio-error");
-          URL.revokeObjectURL(url);
-          resolve();
-        };
+        ttsCompleteRef.current = () => complete("elevenlabs-tts-interrupted");
+        audio.onended = () => complete("elevenlabs-tts-ended");
+        audio.onerror = () => complete("elevenlabs-tts-audio-error");
         logVoice("elevenlabs-tts-start");
-        void audio.play().catch(() => resolve());
+        void audio.play().catch(() => complete("elevenlabs-tts-play-failed"));
       });
     } catch (error) {
       logVoice("elevenlabs-tts-fallback-browser", error);
@@ -223,7 +235,9 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       if (!transcript) return;
       if (last.isFinal) {
         if (speakingRef.current && audioRef.current) {
-            logVoice("interrupting-active-tts-browser-stt");
+          logVoice("interrupting-active-tts-browser-stt");
+          ttsCompleteRef.current?.();
+          ttsCompleteRef.current = null;
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
           speakingRef.current = false;
@@ -400,6 +414,8 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
           if (buffered) {
             if (speakingRef.current && audioRef.current) {
               logVoice("interrupting-active-tts-azure-interim");
+              ttsCompleteRef.current?.();
+              ttsCompleteRef.current = null;
               audioRef.current.pause();
               audioRef.current.currentTime = 0;
               speakingRef.current = false;
@@ -414,6 +430,8 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
         if (transcript) {
           if (speakingRef.current && audioRef.current) {
             logVoice("interrupting-active-tts-azure-final");
+            ttsCompleteRef.current?.();
+            ttsCompleteRef.current = null;
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
             speakingRef.current = false;
