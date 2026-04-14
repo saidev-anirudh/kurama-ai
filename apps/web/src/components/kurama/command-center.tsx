@@ -18,9 +18,6 @@ const QUICK_ROUTES = [
   { label: "Contact", href: "/contact" },
 ];
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_KURAMA_GATEWAY_URL ?? "http://localhost:8080";
-const GATEWAY_TOKEN = process.env.NEXT_PUBLIC_KURAMA_API_TOKEN;
-
 export function KuramaCommandCenter() {
   const router = useRouter();
   const {
@@ -199,12 +196,9 @@ export function KuramaCommandCenter() {
     addTranscript({ id: crypto.randomUUID(), role: "user", text });
     setMode("thinking");
     try {
-      const response = await fetch(`${GATEWAY_URL}/orchestrate`, {
+      const response = await fetch("/api/kurama/orchestrate", {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(GATEWAY_TOKEN ? { Authorization: `Bearer ${GATEWAY_TOKEN}` } : {}),
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
       });
       const payload = (await response.json()) as {

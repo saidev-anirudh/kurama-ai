@@ -8,9 +8,6 @@ import { KuramaOrb } from "@/components/kurama/orb";
 import type { AgentAction } from "@/lib/actions/agent-actions";
 import { useVoiceStore } from "@/store/voice-store";
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_KURAMA_GATEWAY_URL ?? "http://localhost:8080";
-const GATEWAY_TOKEN = process.env.NEXT_PUBLIC_KURAMA_API_TOKEN;
-
 type BrowserRecognitionLike = {
   lang: string;
   continuous: boolean;
@@ -260,12 +257,9 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
     }
     handlingUtteranceRef.current = true;
     try {
-      const response = await fetch(`${GATEWAY_URL}/validate`, {
+      const response = await fetch("/api/kurama/validate", {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(GATEWAY_TOKEN ? { Authorization: `Bearer ${GATEWAY_TOKEN}` } : {}),
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
       });
       if (!response.ok) {
@@ -305,12 +299,9 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
     console.log("[kurama-transcript:user]", text);
     setMode("thinking");
     try {
-      const response = await fetch(`${GATEWAY_URL}/orchestrate`, {
+      const response = await fetch("/api/kurama/orchestrate", {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(GATEWAY_TOKEN ? { Authorization: `Bearer ${GATEWAY_TOKEN}` } : {}),
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
       });
       const payload = (await response.json()) as { speech_text: string; ui_actions: AgentAction[] };
