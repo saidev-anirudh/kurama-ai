@@ -36,6 +36,8 @@ export function KuramaCommandCenter() {
   const autoStartedRef = useRef(false);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const liveTextRef = useRef("");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const requestInFlightRef = useRef(false);
 
   const intro = useMemo(
     () =>
@@ -166,17 +168,33 @@ export function KuramaCommandCenter() {
       if (!response.ok) return;
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
       const audio = new Audio(audioUrl);
-      audio.onended = () => URL.revokeObjectURL(audioUrl);
-      await audio.play();
+      audioRef.current = audio;
+      await new Promise<void>((resolve) => {
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        void audio.play().catch(() => resolve());
+      });
     } catch {
       // TTS is optional; UI still functions without it.
     }
   }
 
   async function askKurama(rawText?: unknown) {
+    if (requestInFlightRef.current) return;
     const text = typeof rawText === "string" ? rawText.trim() : query.trim();
     if (!text) return;
+    requestInFlightRef.current = true;
     console.log("[kurama-transcript:user]", text);
     addTranscript({ id: crypto.randomUUID(), role: "user", text });
     setMode("thinking");
@@ -205,6 +223,7 @@ export function KuramaCommandCenter() {
         text: "I couldn't reach the orchestration service. Try again after backend starts.",
       });
     } finally {
+      requestInFlightRef.current = false;
       setMode(micAllowed ? "listening" : "idle");
       setQuery("");
     }

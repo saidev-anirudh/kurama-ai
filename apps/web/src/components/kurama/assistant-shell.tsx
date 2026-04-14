@@ -46,6 +46,11 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
   const browserRecognitionRef = useRef<BrowserRecognitionLike | null>(null);
   const shouldKeepListeningRef = useRef(false);
   const greetedRef = useRef(false);
+  const lastUtteranceRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
+  const requestInFlightRef = useRef(false);
+  const sttRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tokenRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sttActiveRef = useRef(false);
   const [ready, setReady] = useState(false);
 
   const intro = useMemo(
@@ -60,6 +65,73 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       return;
     }
     console.log(`[kurama-voice] ${stage}`);
+  }
+
+  function stopActivePlayback() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    speakingRef.current = false;
+  }
+
+  function startListeningIfAvailable() {
+    if (!micAllowedRef.current) return;
+    if (recognitionRef.current) {
+      if (sttActiveRef.current) return;
+      recognitionRef.current.startContinuousRecognitionAsync(
+        () => {
+          sttActiveRef.current = true;
+          logVoice("azure-stt-started");
+        },
+        (error) => logVoice("azure-stt-start-failed", error),
+      );
+      return;
+    }
+    if (browserRecognitionRef.current) {
+      shouldKeepListeningRef.current = true;
+      try {
+        browserRecognitionRef.current.start();
+        logVoice("browser-stt-started");
+      } catch (error) {
+        logVoice("browser-stt-start-failed", error);
+      }
+    }
+  }
+
+  async function refreshAzureSpeechToken() {
+    try {
+      const response = await fetch("/api/speech/token");
+      if (!response.ok) {
+        logVoice("azure-token-refresh-failed-http", response.status);
+        return;
+      }
+      const { token } = (await response.json()) as { token: string; region: string };
+      const recognizer = recognitionRef.current as unknown as { authorizationToken?: string } | null;
+      if (recognizer) {
+        recognizer.authorizationToken = token;
+        logVoice("azure-token-refreshed");
+      }
+    } catch (error) {
+      logVoice("azure-token-refresh-failed-network", error);
+    }
+  }
+
+  function scheduleAzureRestart(reason: string) {
+    if (!micAllowedRef.current || !recognitionRef.current) return;
+    if (sttRestartTimerRef.current) clearTimeout(sttRestartTimerRef.current);
+    sttRestartTimerRef.current = setTimeout(() => {
+      logVoice("azure-stt-restart-attempt", reason);
+      sttActiveRef.current = false;
+      recognitionRef.current?.stopContinuousRecognitionAsync(
+        () => startListeningIfAvailable(),
+        () => startListeningIfAvailable(),
+      );
+    }, 350);
   }
 
   function speakWithBrowserTts(text: string): Promise<void> {
@@ -95,33 +167,42 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
 
   async function speakWithElevenLabs(text: string) {
     try {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 12000);
       const response = await fetch("/api/tts", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (!response.ok) {
         logVoice("elevenlabs-tts-http-error", response.status);
         await speakWithBrowserTts(text);
         return;
       }
       const blob = await response.blob();
+      stopActivePlayback();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
       speakingRef.current = true;
-      audio.onended = () => {
-        speakingRef.current = false;
-        logVoice("elevenlabs-tts-ended");
-        URL.revokeObjectURL(url);
-      };
-      audio.onerror = () => {
-        speakingRef.current = false;
-        logVoice("elevenlabs-tts-audio-error");
-        URL.revokeObjectURL(url);
-      };
-      logVoice("elevenlabs-tts-start");
-      await audio.play();
+      await new Promise<void>((resolve) => {
+        audio.onended = () => {
+          speakingRef.current = false;
+          logVoice("elevenlabs-tts-ended");
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        audio.onerror = () => {
+          speakingRef.current = false;
+          logVoice("elevenlabs-tts-audio-error");
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        logVoice("elevenlabs-tts-start");
+        void audio.play().catch(() => resolve());
+      });
     } catch (error) {
       logVoice("elevenlabs-tts-fallback-browser", error);
       await speakWithBrowserTts(text);
@@ -205,8 +286,19 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
   async function askKurama(rawText?: string) {
     const sourceText = (rawText ?? query).trim();
     if (!sourceText) return;
+    const now = Date.now();
+    if (
+      requestInFlightRef.current ||
+      (lastUtteranceRef.current.text === sourceText && now - lastUtteranceRef.current.at < 2500)
+    ) {
+      logVoice("utterance-skipped-duplicate-or-busy", sourceText);
+      return;
+    }
+    requestInFlightRef.current = true;
+    lastUtteranceRef.current = { text: sourceText, at: now };
     const validation = await validateSpeech(sourceText);
     if (!validation.valid || !validation.cleaned) {
+      requestInFlightRef.current = false;
       return;
     }
     const text = validation.cleaned;
@@ -244,6 +336,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
         }
       });
     } finally {
+      requestInFlightRef.current = false;
       setMode(micAllowedRef.current ? "listening" : "idle");
       setQuery("");
     }
@@ -256,20 +349,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       micAllowedRef.current = true;
       setMode("speaking");
       await speakWithElevenLabs("Microphone enabled. I am listening. Ask me anything about Sai.");
-      if (recognitionRef.current) {
-        recognitionRef.current.startContinuousRecognitionAsync(
-          () => logVoice("azure-stt-started"),
-          (error) => logVoice("azure-stt-start-failed", error),
-        );
-      } else if (browserRecognitionRef.current) {
-        shouldKeepListeningRef.current = true;
-        try {
-          browserRecognitionRef.current.start();
-          logVoice("browser-stt-started");
-        } catch (error) {
-          logVoice("browser-stt-start-failed", error);
-        }
-      }
+      startListeningIfAvailable();
       setTimeout(() => setMode("listening"), 350);
     } catch (error) {
       logVoice("mic-enable-failed", error);
@@ -354,12 +434,23 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
         }
       };
       recognizer.canceled = (_, event) => {
+        sttActiveRef.current = false;
         logVoice("azure-stt-canceled", { reason: event.reason, errorCode: event.errorCode, errorDetails: event.errorDetails });
+        scheduleAzureRestart("canceled");
       };
       recognizer.sessionStarted = () => logVoice("azure-stt-session-started");
-      recognizer.sessionStopped = () => logVoice("azure-stt-session-stopped");
+      recognizer.sessionStopped = () => {
+        sttActiveRef.current = false;
+        logVoice("azure-stt-session-stopped");
+        scheduleAzureRestart("session-stopped");
+      };
       recognitionRef.current = recognizer;
       logVoice("azure-stt-ready");
+      if (tokenRefreshTimerRef.current) clearInterval(tokenRefreshTimerRef.current);
+      tokenRefreshTimerRef.current = setInterval(() => {
+        void refreshAzureSpeechToken();
+      }, 8 * 60 * 1000);
+      startListeningIfAvailable();
     })();
 
     return () => {
@@ -368,6 +459,10 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
+      sttActiveRef.current = false;
+      if (sttRestartTimerRef.current) clearTimeout(sttRestartTimerRef.current);
+      if (tokenRefreshTimerRef.current) clearInterval(tokenRefreshTimerRef.current);
+      stopActivePlayback();
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       recognitionRef.current?.stopContinuousRecognitionAsync();
       recognitionRef.current?.close();

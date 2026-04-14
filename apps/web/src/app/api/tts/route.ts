@@ -4,9 +4,11 @@ import { ElevenLabsClient } from "elevenlabs";
 export async function POST(request: NextRequest) {
   try {
     const { text } = (await request.json()) as { text?: string };
-    if (!text?.trim()) {
+    const trimmedText = text?.trim() ?? "";
+    if (!trimmedText) {
       return NextResponse.json({ error: "Text is required." }, { status: 400 });
     }
+    const safeText = trimmedText.length > 420 ? `${trimmedText.slice(0, 420)}...` : trimmedText;
 
     const apiKey = process.env.ELEVENLABS_API_KEY;
     const voiceId = process.env.ELEVENLABS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
@@ -17,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const client = new ElevenLabsClient({ apiKey });
     const audioStream = await client.textToSpeech.convert(voiceId, {
-      text,
+      text: safeText,
       model_id: process.env.ELEVENLABS_MODEL_ID ?? "eleven_turbo_v2_5",
       output_format: "mp3_44100_128",
       voice_settings: {
@@ -31,6 +33,9 @@ export async function POST(request: NextRequest) {
     const chunks: Uint8Array[] = [];
     for await (const chunk of audioStream) {
       chunks.push(chunk);
+    }
+    if (chunks.length === 0) {
+      return NextResponse.json({ error: "TTS returned empty audio stream." }, { status: 502 });
     }
     const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
     const merged = new Uint8Array(size);

@@ -7,6 +7,9 @@
     "dev:web": "pnpm --filter @portfolio/web dev",
     "build:web": "pnpm --filter @portfolio/web build",
     "lint:web": "pnpm --filter @portfolio/web lint",
-    "typecheck:contracts": "pnpm --filter @portfolio/contracts build"
+    "typecheck:contracts": "pnpm --filter @portfolio/contracts build",
+    "dev:up": "bash ./scripts/dev-up.sh",
+    "check:base": "bash ./scripts/base-check.sh",
+    "dev:logs": "bash ./scripts/dev-logs.sh"
   }
 }

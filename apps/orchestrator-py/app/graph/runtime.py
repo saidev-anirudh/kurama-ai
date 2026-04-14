@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import json
 from uuid import uuid4
+import logging
 
 from app.graph.nodes import (
     emit_ui_and_voice_node,
@@ -93,6 +94,7 @@ def _after_repair(state: GraphState) -> str:
 GRAPH = _build_graph()
 CHECKPOINT_DIR = Path(__file__).resolve().parent / "checkpoints"
 CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+logger = logging.getLogger(__name__)
 
 
 def run_graph(text: str, session_id: str | None) -> dict[str, object]:
@@ -104,19 +106,30 @@ def run_graph(text: str, session_id: str | None) -> dict[str, object]:
         "max_retries": 1,
     }
 
-    if GRAPH is not None:
-        final = GRAPH.invoke(initial)
-    else:
-        final = ingest_input_node(initial)
-        final = intent_and_policy_node(final)
-        final = parallel_context_node(final)
-        final = retrieval_context_node(final)
-        final = personalization_context_node(final)
-        final = response_compose_node(final)
-        final = route_domain_node(final)
-        final = evaluator_node(final)
-        final = repair_or_finalize_node(final)
-        final = emit_ui_and_voice_node(final)
+    try:
+        if GRAPH is not None:
+            final = GRAPH.invoke(initial)
+        else:
+            final = ingest_input_node(initial)
+            final = intent_and_policy_node(final)
+            final = parallel_context_node(final)
+            final = retrieval_context_node(final)
+            final = personalization_context_node(final)
+            final = response_compose_node(final)
+            final = route_domain_node(final)
+            final = evaluator_node(final)
+            final = repair_or_finalize_node(final)
+            final = emit_ui_and_voice_node(final)
+    except Exception as error:  # pragma: no cover - safety fallback for runtime issues.
+        logger.exception("graph invocation failed: %s", error)
+        final = {
+            "speech_text": "I hit a routing issue. Please try your request one more time.",
+            "intent_name": "general",
+            "intent_confidence": 0.0,
+            "ui_actions": [{"type": "navigate", "payload": {"to": "/"}}],
+            "graph_path": ["graph_error_fallback"],
+            "graph_trace_id": initial["graph_trace_id"],
+        }
 
     result = {
         "speech_text": final["speech_text"],

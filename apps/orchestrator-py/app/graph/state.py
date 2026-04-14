@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict
+from typing import Annotated, Literal, TypedDict
 
 
 IntentName = Literal[
@@ -15,8 +15,8 @@ IntentName = Literal[
 
 
 class GraphState(TypedDict, total=False):
-    text: str
-    session_id: str
+    text: Annotated[str, lambda _, new: new]
+    session_id: Annotated[str, lambda _, new: new]
     intent_name: IntentName
     intent_confidence: float
     speech_text: str

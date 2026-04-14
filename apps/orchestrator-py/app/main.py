@@ -27,10 +27,21 @@ def healthz() -> dict[str, str]:
 @app.post("/orchestrate")
 def orchestrate(payload: OrchestrateRequest) -> dict[str, object]:
     print(f"[kurama-cli:user] {payload.text}")
-    result = run_graph(payload.text, payload.session_id)
-    print(f"[kurama-cli:assistant] {result.get('speech_text', '')}")
-    append_turn(payload.text, str(result.get("speech_text", "")))
-    return result
+    try:
+        result = run_graph(payload.text, payload.session_id)
+        print(f"[kurama-cli:assistant] {result.get('speech_text', '')}")
+        append_turn(payload.text, str(result.get("speech_text", "")))
+        return result
+    except Exception as error:  # pragma: no cover - final API guardrail
+        print(f"[kurama-cli:error] orchestrate failed: {error}")
+        return {
+            "speech_text": "I hit a temporary issue. Please try that again.",
+            "intent": {"name": "general", "confidence": 0.0},
+            "ui_actions": [{"type": "navigate", "payload": {"to": "/"}}],
+            "graph_path": ["api_error_fallback"],
+            "graph_trace_id": "api-error",
+            "sources": ["fallback"],
+        }
 
 
 @app.post("/validate")
