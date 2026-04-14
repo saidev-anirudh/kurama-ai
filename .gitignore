@@ -11,3 +11,9 @@ __pycache__/
 .env.*.local
 .venv/
 .DS_Store
+
+# Runtime and local generated artifacts
+apps/orchestrator-py/app/graph/checkpoints/*.json
+apps/orchestrator-py/app/memory/shared_memory.json
+apps/orchestrator-py/orchestrator_py.egg-info/
+apps/web/tsconfig.tsbuildinfo
