@@ -305,6 +305,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
     }
     requestInFlightRef.current = true;
     lastUtteranceRef.current = { text: sourceText, at: now };
+    const pipelineStart = performance.now();
     const validation = await validateSpeech(sourceText);
     if (!validation.valid || !validation.cleaned) {
       requestInFlightRef.current = false;
@@ -313,7 +314,6 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
     const text = validation.cleaned;
     console.log("[kurama-transcript:user]", text);
     setMode("thinking");
-    const pipelineStart = performance.now();
     try {
       const response = await fetch("/api/kurama/orchestrate", {
         method: "POST",
