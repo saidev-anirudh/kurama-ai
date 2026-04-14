@@ -19,6 +19,7 @@ export function BlogList() {
 
   return (
     <section className="content-page">
+      <p className="hud-eyebrow">Archive</p>
       <h1>Blog</h1>
       <ul className="blog-list">
         {blogs.map((post) => (

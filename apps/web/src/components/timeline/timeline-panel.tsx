@@ -3,6 +3,7 @@ import { experiences } from "@/lib/content/resume";
 export function TimelinePanel() {
   return (
     <section className="content-page">
+      <p className="hud-eyebrow">Chronology</p>
       <h1>Career Timeline</h1>
       <ul className="timeline-list">
         {experiences.map((item) => (

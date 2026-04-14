@@ -1,3 +1,4 @@
+import { PageFrame } from "@/components/aurora/page-frame";
 import { projects } from "@/lib/content/resume";
 
 type Repo = {
@@ -46,9 +47,11 @@ export default async function ProjectsPage() {
   const repos = await getPublicRepos();
   const username = process.env.GITHUB_USERNAME ?? "saidev-anirudh";
   return (
-    <main className="content-page">
-      <h1>Projects</h1>
-      <p className="muted">Featured resume projects and public repositories.</p>
+    <PageFrame>
+      <article className="content-page">
+        <p className="hud-eyebrow">Repository mesh</p>
+        <h1>Projects</h1>
+        <p className="hud-subtitle muted">Featured resume projects and public repositories.</p>
 
       <ul className="timeline-list">
         {projects.map((project) => (
@@ -68,7 +71,7 @@ export default async function ProjectsPage() {
       <img
         alt="GitHub contribution graph"
         src={`https://ghchart.rshah.org/${username}`}
-        style={{ width: "100%", borderRadius: "10px", marginBottom: "0.8rem" }}
+        className="mb-3 w-full rounded-sm border border-border/60 opacity-90 shadow-[0_0_24px_hsl(var(--neon-cyan)/0.12)]"
       />
       <ul className="timeline-list">
         {repos.map((repo) => (
@@ -88,6 +91,7 @@ export default async function ProjectsPage() {
           </li>
         ))}
       </ul>
-    </main>
+      </article>
+    </PageFrame>
   );
 }

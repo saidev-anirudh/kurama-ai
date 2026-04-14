@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 import { profile } from "@/lib/content/resume";
 
 type RecognitionLike = {
@@ -76,8 +77,9 @@ export function ContactCard() {
 
   return (
     <section className="content-page">
+      <p className="hud-eyebrow">Uplink</p>
       <h1>Contact</h1>
-      <p className="muted">Open to hiring, collaboration, speaking, and consulting requests.</p>
+      <p className="hud-subtitle muted">Open to hiring, collaboration, speaking, and consulting requests.</p>
       <div className="contact-grid">
         <a href={`mailto:${profile.email}`}>Email</a>
         <a href={`tel:${profile.phone}`}>Call</a>
@@ -114,7 +116,7 @@ export function ContactCard() {
       </div>
 
       {subject || body ? (
-        <div className="transcript-panel" style={{ display: "block" }}>
+        <div className={cn("transcript-panel", "transcript-panel--open")}>
           <h3>Review Before Send</h3>
           <p>
             <strong>Subject:</strong> {subject}
