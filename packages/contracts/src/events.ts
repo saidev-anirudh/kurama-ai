@@ -8,6 +8,7 @@ export type IntentName =
   | "passions"
   | "blog"
   | "contact"
+  | "website"
   | "general";
 
 export interface IntentResult {

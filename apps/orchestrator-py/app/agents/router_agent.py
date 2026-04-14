@@ -3,6 +3,8 @@ from app.graph.state import IntentName
 
 def classify_intent(text: str) -> tuple[IntentName, float]:
     normalized = text.lower().strip()
+    if any(term in normalized for term in ("website", "site", "open the page", "view the page", "show me the website", "home page")):
+        return "website", 0.92
     if "project" in normalized or "build" in normalized:
         return "projects", 0.89
     if "work" in normalized or "experience" in normalized:
@@ -13,7 +15,7 @@ def classify_intent(text: str) -> tuple[IntentName, float]:
         return "blog", 0.84
     if "passion" in normalized or "interest" in normalized:
         return "passions", 0.83
-    if "contact" in normalized or "hire" in normalized:
+    if "contact" in normalized or "hire" in normalized or "message" in normalized or "email" in normalized:
         return "contact", 0.9
     if "about" in normalized or "who is" in normalized:
         return "about", 0.8

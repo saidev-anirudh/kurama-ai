@@ -1,18 +1,45 @@
-const POSTS = [
-  { slug: "agent-routing-101", title: "Agent Routing 101", tag: "agents" },
-  { slug: "voice-ui-primitives", title: "Voice UI Primitives", tag: "voice" },
-  { slug: "futuristic-product-ux", title: "Futuristic Product UX", tag: "design" },
-];
+"use client";
+
+import { useEffect, useState } from "react";
+import { blogs } from "@/lib/content/resume";
+
+type MediumPost = { title: string; link: string; description: string };
 
 export function BlogList() {
+  const [posts, setPosts] = useState<MediumPost[]>([]);
+
+  useEffect(() => {
+    void (async () => {
+      const response = await fetch("/api/medium/posts");
+      if (!response.ok) return;
+      const payload = (await response.json()) as { posts: MediumPost[] };
+      setPosts(payload.posts ?? []);
+    })();
+  }, []);
+
   return (
     <section className="content-page">
       <h1>Blog</h1>
       <ul className="blog-list">
-        {POSTS.map((post) => (
-          <li key={post.slug}>
+        {blogs.map((post) => (
+          <li key={post.title}>
             <strong>{post.title}</strong>
-            <span className="muted">{post.tag}</span>
+            <span className="muted">{post.description}</span>
+          </li>
+        ))}
+      </ul>
+
+      <h2>Medium Connector</h2>
+      <p className="muted">Live posts from Medium feed.</p>
+      <ul className="blog-list">
+        {posts.map((post) => (
+          <li key={post.link}>
+            <strong>
+              <a href={post.link} target="_blank" rel="noreferrer">
+                {post.title}
+              </a>
+            </strong>
+            <span className="muted">{post.description}</span>
           </li>
         ))}
       </ul>

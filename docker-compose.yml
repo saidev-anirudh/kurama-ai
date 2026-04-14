@@ -4,8 +4,11 @@ services:
     image: node:20-alpine
     working_dir: /app
     command: sh -c "corepack enable && pnpm install && pnpm --filter @portfolio/web dev"
+    env_file:
+      - .env.local
     environment:
-      KURAMA_GATEWAY_URL: http://localhost:8080
+      NEXT_PUBLIC_KURAMA_GATEWAY_URL: ${NEXT_PUBLIC_KURAMA_GATEWAY_URL:-http://localhost:8080}
+      NEXT_PUBLIC_KURAMA_API_TOKEN: ${NEXT_PUBLIC_KURAMA_API_TOKEN:-}
     ports:
       - "3000:3000"
     volumes:
@@ -14,9 +17,11 @@ services:
     image: golang:1.23
     working_dir: /app/apps/gateway-go
     command: sh -c "go mod tidy && go run ./cmd/server"
+    env_file:
+      - .env.local
     environment:
       ORCHESTRATOR_URL: http://orchestrator-py:8000
-      KURAMA_API_TOKEN: dev-token
+      KURAMA_API_TOKEN: ${KURAMA_API_TOKEN:-}
     ports:
       - "8080:8080"
     volumes:
@@ -33,6 +38,8 @@ services:
     image: python:3.12-slim
     working_dir: /app/apps/orchestrator-py
     command: sh -c "pip install -e . && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - .env.local
     ports:
       - "8000:8000"
     volumes:

@@ -9,6 +9,7 @@ IntentName = Literal[
     "passions",
     "blog",
     "contact",
+    "website",
     "general",
 ]
 
@@ -24,8 +25,10 @@ class GraphState(TypedDict, total=False):
     graph_trace_id: str
     retrieval_context: dict[str, object]
     personalization_context: dict[str, object]
+    website_context: dict[str, object]
     action_valid: bool
     is_safe: bool
     requires_human_approval: bool
     retry_count: int
     max_retries: int
+    memory_summary: str

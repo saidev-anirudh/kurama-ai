@@ -28,6 +28,7 @@ func main() {
 	mux.HandleFunc("/webrtc/answer", webrtc.Answer)
 	mux.HandleFunc("/webrtc/ice", webrtc.ICE)
 	mux.HandleFunc("/orchestrate", orchestrate)
+	mux.HandleFunc("/validate", validate)
 
 	addr := ":8080"
 	log.Printf("gateway listening on %s", addr)
@@ -162,6 +163,47 @@ func orchestrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	_, _ = w.Write(raw)
+}
+
+func validate(w http.ResponseWriter, r *http.Request) {
+	type payload struct {
+		Text string `json:"text"`
+	}
+	var req payload
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid payload"})
+		return
+	}
+	if req.Text == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "text is required"})
+		return
+	}
+	orchestratorURL := os.Getenv("ORCHESTRATOR_URL")
+	if orchestratorURL == "" {
+		orchestratorURL = "http://localhost:8000"
+	}
+	body, _ := json.Marshal(map[string]string{"text": req.Text})
+	resp, err := http.Post(orchestratorURL+"/validate", "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		log.Printf("validate proxy error: %v", err)
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "orchestrator unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+	raw, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		log.Printf("validate read error: %v", readErr)
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to read orchestrator response"})
+		return
+	}
+	log.Printf("validate response status=%d body=%s", resp.StatusCode, string(raw))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	_, _ = w.Write(raw)

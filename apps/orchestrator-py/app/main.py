@@ -4,6 +4,8 @@ from pathlib import Path
 import json
 
 from app.graph.runtime import run_graph
+from app.memory.shared_memory import append_turn
+from app.llm.validator import validate_utterance
 
 app = FastAPI(title="Kurama Orchestrator")
 
@@ -13,6 +15,10 @@ class OrchestrateRequest(BaseModel):
     session_id: str | None = None
 
 
+class ValidateRequest(BaseModel):
+    text: str
+
+
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
@@ -20,7 +26,18 @@ def healthz() -> dict[str, str]:
 
 @app.post("/orchestrate")
 def orchestrate(payload: OrchestrateRequest) -> dict[str, object]:
-    return run_graph(payload.text, payload.session_id)
+    print(f"[kurama-cli:user] {payload.text}")
+    result = run_graph(payload.text, payload.session_id)
+    print(f"[kurama-cli:assistant] {result.get('speech_text', '')}")
+    append_turn(payload.text, str(result.get("speech_text", "")))
+    return result
+
+
+@app.post("/validate")
+def validate(payload: ValidateRequest) -> dict[str, object]:
+    result = validate_utterance(payload.text)
+    print(f"[kurama-cli:validate] text={payload.text} result={result}")
+    return result
 
 
 @app.get("/graph/replay/{trace_id}")

@@ -1,5 +1,6 @@
 from app.agents.router_agent import classify_intent
 from app.graph.state import GraphState
+from app.llm.azure_openai import generate_kurama_reply
 
 
 def ingest_input_node(state: GraphState) -> GraphState:
@@ -62,7 +63,8 @@ def route_domain_node(state: GraphState) -> GraphState:
     }
     route = route_map.get(state["intent_name"], "/")
     state["ui_actions"] = [{"type": "navigate", "payload": {"to": route}}]
-    state["speech_text"] = (
+    llm_reply = generate_kurama_reply(state.get("text", ""), state["intent_name"], route)
+    state["speech_text"] = llm_reply or (
         f"Hey, I'm Kurama, Sai's personal assistant. Routing you to {route.replace('/', '') or 'home'}."
     )
     state["graph_path"] = [*state.get("graph_path", []), "route_domain_node"]
