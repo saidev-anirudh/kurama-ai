@@ -17,12 +17,16 @@ type VoiceStore = {
   lastPipelineMs: number | null;
   /** Last measured Next.js → speech token proxy RTT (ms). */
   linkRttMs: number | null;
+  /** Agent-requested route: full-screen veil + motion while TTS may still be playing. */
+  agentNavVeil: boolean;
+  agentNavTarget: string | null;
   setMode: (mode: KuramaMode) => void;
   setMicAllowed: (value: boolean) => void;
   setActiveRoute: (route: string) => void;
   addTranscript: (line: TranscriptLine) => void;
   clearTranscripts: () => void;
   setVoiceMetrics: (partial: { lastPipelineMs?: number | null; linkRttMs?: number | null }) => void;
+  setAgentNavVeil: (active: boolean, target?: string | null) => void;
 };
 
 export const useVoiceStore = create<VoiceStore>((set) => ({
@@ -32,6 +36,8 @@ export const useVoiceStore = create<VoiceStore>((set) => ({
   transcripts: [],
   lastPipelineMs: null,
   linkRttMs: null,
+  agentNavVeil: false,
+  agentNavTarget: null,
   setMode: (mode) => set({ mode }),
   setMicAllowed: (value) => set({ micAllowed: value }),
   setActiveRoute: (route) => set({ activeRoute: route }),
@@ -41,4 +47,9 @@ export const useVoiceStore = create<VoiceStore>((set) => ({
     })),
   clearTranscripts: () => set({ transcripts: [] }),
   setVoiceMetrics: (partial) => set((state) => ({ ...state, ...partial })),
+  setAgentNavVeil: (active, target = null) =>
+    set({
+      agentNavVeil: active,
+      agentNavTarget: active ? (target ?? null) : null,
+    }),
 }));

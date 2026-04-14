@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { SpeechRecognitionEventArgs, SpeechRecognizer } from "microsoft-cognitiveservices-speech-sdk";
 
@@ -314,6 +314,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
     const text = validation.cleaned;
     console.log("[kurama-transcript:user]", text);
     setMode("thinking");
+    let scheduledAgentNav: string | null = null;
     try {
       const response = await fetch("/api/kurama/orchestrate", {
         method: "POST",
@@ -331,22 +332,47 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       }
       console.log("[kurama-transcript:assistant]", payload.speech_text);
       setMode("speaking");
-      await speakWithElevenLabs(payload.speech_text);
-      payload.ui_actions.forEach((action) => {
+
+      for (const action of payload.ui_actions) {
         if (action.type === "present" && action.payload.component === "contact_message_draft") {
           sessionStorage.setItem("kurama_contact_draft", JSON.stringify(action.payload.props ?? {}));
           logVoice("contact-draft-presented", action.payload.props ?? {});
         }
-      });
-      payload.ui_actions.forEach((action) => {
-        if (action.type === "navigate") {
-          setActiveRoute(action.payload.to);
-          document.body.classList.add("scene-transition");
-          window.setTimeout(() => document.body.classList.remove("scene-transition"), 550);
-          router.push(action.payload.to);
+      }
+
+      const navTargets = payload.ui_actions.filter((a): a is Extract<AgentAction, { type: "navigate" }> => a.type === "navigate");
+      if (navTargets.length > 1) {
+        logVoice("multiple-navigate-actions", { count: navTargets.length, using: navTargets[0]?.payload.to });
+      }
+      const primaryNav = navTargets[0]?.payload.to ?? null;
+      const navDelayMs = 520;
+
+      if (primaryNav) {
+        scheduledAgentNav = primaryNav;
+        try {
+          void router.prefetch(primaryNav);
+        } catch {
+          // prefetch is best-effort
         }
-      });
+        useVoiceStore.getState().setAgentNavVeil(true, primaryNav);
+        window.setTimeout(() => {
+          setActiveRoute(primaryNav);
+          document.body.classList.add("scene-transition");
+          startTransition(() => {
+            router.push(primaryNav);
+          });
+          window.setTimeout(() => document.body.classList.remove("scene-transition"), 620);
+          window.setTimeout(() => {
+            useVoiceStore.getState().setAgentNavVeil(false, null);
+          }, 880);
+        }, navDelayMs);
+      }
+
+      await speakWithElevenLabs(payload.speech_text);
     } finally {
+      if (!scheduledAgentNav) {
+        useVoiceStore.getState().setAgentNavVeil(false, null);
+      }
       requestInFlightRef.current = false;
       setMode(micAllowedRef.current ? "listening" : "idle");
       setQuery("");

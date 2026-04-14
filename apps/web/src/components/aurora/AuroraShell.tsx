@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { AssistantShell } from "@/components/kurama/assistant-shell";
+import { AgentNavVeil } from "./AgentNavVeil";
+import { RouteViewTransition } from "./RouteViewTransition";
 import HudNav from "./hud/HudNav";
 import HudOverlay from "./hud/HudOverlay";
 import HeroContent from "./hud/HeroContent";
@@ -30,6 +32,7 @@ export function AuroraShell({ children }: { children: ReactNode }) {
 
       <HudNav />
       <HudOverlay />
+      <AgentNavVeil />
 
       <AssistantShell>
         <div
@@ -38,7 +41,7 @@ export function AuroraShell({ children }: { children: ReactNode }) {
             isHome ? "min-h-screen pb-36" : "min-h-screen pt-24 pb-36",
           )}
         >
-          {children}
+          <RouteViewTransition>{children}</RouteViewTransition>
           {isHome ? <HeroContent /> : null}
         </div>
       </AssistantShell>
