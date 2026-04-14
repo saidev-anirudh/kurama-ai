@@ -51,6 +51,10 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
   const sttActiveRef = useRef(false);
   /** Resolves the in-flight ElevenLabs/browser-TTS promise when audio is paused or torn down (STT interrupt). */
   const ttsCompleteRef = useRef<(() => void) | null>(null);
+  /** Monotonic id so a superseded askKurama finally block cannot clear state for a newer utterance. */
+  const utteranceFlightRef = useRef(0);
+  /** Aborts validate + orchestrate when a new utterance barges in. */
+  const utterancePipelineAbortRef = useRef<AbortController | null>(null);
   const [ready, setReady] = useState(false);
 
   const intro = useMemo(
@@ -234,6 +238,14 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       const last = event.results[event.results.length - 1];
       const transcript = last?.[0]?.transcript?.trim();
       if (!transcript) return;
+      if (!last.isFinal && speakingRef.current && audioRef.current && transcript.length >= 4) {
+        logVoice("interrupting-active-tts-browser-interim");
+        ttsCompleteRef.current?.();
+        ttsCompleteRef.current = null;
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        speakingRef.current = false;
+      }
       if (last.isFinal) {
         if (speakingRef.current && audioRef.current) {
           logVoice("interrupting-active-tts-browser-stt");
@@ -265,7 +277,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
     logVoice("browser-stt-ready");
   }
 
-  async function validateSpeech(text: string): Promise<{ valid: boolean; cleaned: string }> {
+  async function validateSpeech(text: string, signal?: AbortSignal): Promise<{ valid: boolean; cleaned: string }> {
     if (handlingUtteranceRef.current) {
       logVoice("utterance-skipped-busy");
       return { valid: false, cleaned: "" };
@@ -276,6 +288,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
+        signal,
       });
       if (!response.ok) {
         logVoice("validate-http-error", response.status);
@@ -285,6 +298,10 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       logVoice("validate-result", payload);
       return { valid: Boolean(payload.valid), cleaned: (payload.cleaned_text ?? "").trim() };
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        logVoice("validate-aborted");
+        return { valid: false, cleaned: "" };
+      }
       logVoice("validate-network-error", error);
       return { valid: false, cleaned: "" };
     } finally {
@@ -296,19 +313,31 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
     const sourceText = (rawText ?? query).trim();
     if (!sourceText) return;
     const now = Date.now();
-    if (
-      requestInFlightRef.current ||
-      (lastUtteranceRef.current.text === sourceText && now - lastUtteranceRef.current.at < 2500)
-    ) {
-      logVoice("utterance-skipped-duplicate-or-busy", sourceText);
+    const duplicateWindowMs = 1200;
+    if (lastUtteranceRef.current.text === sourceText && now - lastUtteranceRef.current.at < duplicateWindowMs) {
+      logVoice("utterance-skipped-duplicate", sourceText);
       return;
     }
+    /** Block overlapping validate/orchestrate only (not TTS), unless barge-in aborts the prior flight. */
+    if (requestInFlightRef.current && !speakingRef.current) {
+      logVoice("utterance-barge-abort-pipeline");
+      utterancePipelineAbortRef.current?.abort();
+    }
+    utterancePipelineAbortRef.current?.abort();
+    const pipelineController = new AbortController();
+    utterancePipelineAbortRef.current = pipelineController;
+    const pipelineSignal = pipelineController.signal;
+
+    const flightId = ++utteranceFlightRef.current;
     requestInFlightRef.current = true;
     lastUtteranceRef.current = { text: sourceText, at: now };
     const pipelineStart = performance.now();
-    const validation = await validateSpeech(sourceText);
+    const validation = await validateSpeech(sourceText, pipelineSignal);
     if (!validation.valid || !validation.cleaned) {
-      requestInFlightRef.current = false;
+      if (flightId === utteranceFlightRef.current) {
+        requestInFlightRef.current = false;
+        utterancePipelineAbortRef.current = null;
+      }
       return;
     }
     const text = validation.cleaned;
@@ -320,6 +349,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),
+        signal: pipelineSignal,
       });
       const payload = (await response.json()) as { speech_text: string; ui_actions: AgentAction[] };
       const pipelineMs = Math.round(performance.now() - pipelineStart);
@@ -328,8 +358,18 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       }
       if (!response.ok) {
         logVoice("orchestrate-http-error", payload);
+        if (flightId === utteranceFlightRef.current) {
+          requestInFlightRef.current = false;
+          utterancePipelineAbortRef.current = null;
+        }
         return;
       }
+      /** Allow new STT utterances (barge-in / follow-up) while assistant speaks. */
+      if (flightId === utteranceFlightRef.current) {
+        requestInFlightRef.current = false;
+      }
+      utterancePipelineAbortRef.current = null;
+
       console.log("[kurama-transcript:assistant]", payload.speech_text);
       setMode("speaking");
 
@@ -369,11 +409,22 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
       }
 
       await speakWithElevenLabs(payload.speech_text);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        logVoice("orchestrate-or-validate-aborted");
+        return;
+      }
+      throw error;
     } finally {
+      if (flightId === utteranceFlightRef.current) {
+        utterancePipelineAbortRef.current = null;
+      }
       if (!scheduledAgentNav) {
         useVoiceStore.getState().setAgentNavVeil(false, null);
       }
-      requestInFlightRef.current = false;
+      if (flightId === utteranceFlightRef.current) {
+        requestInFlightRef.current = false;
+      }
       setMode(micAllowedRef.current ? "listening" : "idle");
       setQuery("");
     }
@@ -450,6 +501,8 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
         setQuery(liveText);
         setMode("listening");
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        /** Shorter tail while TTS plays so barge-in / new intent commits faster; longer when idle to reduce false triggers. */
+        const endSilenceMs = speakingRef.current ? 680 : 980;
         silenceTimerRef.current = setTimeout(() => {
           const buffered = liveTextRef.current.trim();
           if (buffered) {
@@ -464,7 +517,7 @@ export function AssistantShell({ children }: { children: React.ReactNode }) {
             void askKurama(buffered);
             liveTextRef.current = "";
           }
-        }, 1600);
+        }, endSilenceMs);
       };
       recognizer.recognized = (_, event: SpeechRecognitionEventArgs) => {
         const transcript = event.result?.text?.trim();
